@@ -20,7 +20,6 @@ import java.util.Set;
 /**
  * Created by blues on 12/22/15.
  */
-
 @SupportedAnnotationTypes("*")
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class MethodInvocationProcessor extends AbstractProcessor {

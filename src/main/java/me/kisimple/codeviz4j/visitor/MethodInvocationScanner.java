@@ -5,16 +5,25 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Position;
 
-import java.util.Stack;
+import java.nio.charset.Charset;
+import java.nio.file.*;
+import java.io.*;
+
+import static java.nio.file.StandardOpenOption.*;
 
 /**
  * Created by blues on 12/22/15.
  */
 public class MethodInvocationScanner extends TreeScanner {
 
+    private static String FILE_SEPARATOR = System.getProperty("file.separator");
+    private static Path CV4J_HOME = Paths.get(System.getProperty("user.home"), "codeviz4j");
+
     private Position.LineMap lineMap;
     private Symbol.ClassSymbol classSymbol;
-    private Stack<Symbol.MethodSymbol> methods = new Stack<>();
+    private Path clazzPath;
+    private BufferedWriter methodFile;
+    private BufferedWriter staticFile;
 
     public MethodInvocationScanner(Position.LineMap lineMap) {
         this.lineMap = lineMap;
@@ -27,24 +36,45 @@ public class MethodInvocationScanner extends TreeScanner {
     public void visitClassDef(JCTree.JCClassDecl tree) {
         // rock n roll
         classSymbol = tree.sym;
+        clazzPath = CV4J_HOME.resolve(
+                classSymbol.fullname.toString().replace(".", FILE_SEPARATOR));
 
-        super.visitClassDef(tree);
+        try {
+            if(Files.notExists(clazzPath)) {
+                Files.createDirectories(clazzPath);
+            }
+            setStaticFile();
+
+            super.visitClassDef(tree);
+
+            staticFile.flush();
+            staticFile.close();
+            staticFile = null;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void visitMethodDef(JCTree.JCMethodDecl tree) {
         // rock n roll
-        methods.push(tree.sym);
+        Symbol.MethodSymbol methodSymbol = tree.sym;
+        try {
+            setMethodFile(methodSymbol.toString());
 
-        super.visitMethodDef(tree);
+            super.visitMethodDef(tree);
 
-        // rock n roll
-        methods.pop();
+            methodFile.flush();
+            methodFile.close();
+            methodFile = null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void visitApply(JCTree.JCMethodInvocation tree) {
         // rock n roll
-        String sourceCode = tree.toString();
         JCTree.JCExpression meth = tree.meth;
+        String sourceCode = tree.toString();
         int lineNumber = -1;
         Symbol symbol = null;
 
@@ -62,14 +92,44 @@ public class MethodInvocationScanner extends TreeScanner {
         }
 
         if(symbol != null) {
-            if(methods.empty()) {
-                //
+            if(methodFile == null) {
+                try {
+                    staticFile.write(methodSignature(symbol));
+                    staticFile.newLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             } else {
-                //
+                try {
+                    methodFile.write(methodSignature(symbol));
+                    methodFile.newLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
 
         super.visitApply(tree);
+    }
+
+    private void setMethodFile(String methodName) throws IOException {
+        Path methodPath = clazzPath.resolve(methodName);
+        Charset charset = Charset.forName("US-ASCII");
+        methodFile = Files.newBufferedWriter(
+                methodPath, charset, CREATE, WRITE, TRUNCATE_EXISTING);
+    }
+
+    private void setStaticFile() throws IOException {
+        Path methodPath = clazzPath.resolve("STATIC");
+        Charset charset = Charset.forName("US-ASCII");
+        staticFile = Files.newBufferedWriter(
+                methodPath, charset, CREATE, WRITE, TRUNCATE_EXISTING);
+    }
+
+    private String methodSignature(Symbol symbol) {
+        return symbol.owner.toString() + "#"
+                + symbol.name.toString() + ":"
+                + symbol.type.toString();
     }
 
 }
