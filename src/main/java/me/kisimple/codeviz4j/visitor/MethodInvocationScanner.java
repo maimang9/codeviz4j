@@ -8,6 +8,7 @@ import com.sun.tools.javac.util.Position;
 import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.io.*;
+import java.util.Stack;
 
 import static java.nio.file.StandardOpenOption.*;
 
@@ -19,11 +20,13 @@ public class MethodInvocationScanner extends TreeScanner {
     private static String FILE_SEPARATOR = System.getProperty("file.separator");
     private static Path CV4J_HOME = Paths.get(System.getProperty("user.home"), "codeviz4j");
 
+    private static Charset CHARSET = Charset.forName("US-ASCII");
+
     private Position.LineMap lineMap;
-    private Symbol.ClassSymbol classSymbol;
-    private Path clazzPath;
-    private BufferedWriter methodFile;
-    private BufferedWriter staticFile;
+
+    private Stack<Path> clazzPaths = new Stack<>();
+    private Stack<BufferedWriter> staticFiles = new Stack<>();
+    private Stack<BufferedWriter> methodFiles = new Stack<>();
 
     public MethodInvocationScanner(Position.LineMap lineMap) {
         this.lineMap = lineMap;
@@ -35,37 +38,55 @@ public class MethodInvocationScanner extends TreeScanner {
 
     public void visitClassDef(JCTree.JCClassDecl tree) {
         // rock n roll
-        classSymbol = tree.sym;
-        clazzPath = CV4J_HOME.resolve(
+        Symbol.ClassSymbol classSymbol = tree.sym;
+
+        if(classSymbol.isInterface()) {
+            return;
+        }
+        if(classSymbol.isAnonymous()) {
+            // TODO-blues
+            return;
+        }
+        if(classSymbol.isInner()) {
+            // TODO-blues
+        }
+
+        Path clazzPath = CV4J_HOME.resolve(
                 classSymbol.fullname.toString().replace(".", FILE_SEPARATOR));
+        clazzPaths.push(clazzPath);
 
         try {
             if(Files.notExists(clazzPath)) {
                 Files.createDirectories(clazzPath);
             }
-            setStaticFile();
+            BufferedWriter staticFile = newStaticFile(clazzPath);
+            staticFiles.push(staticFile);
 
             super.visitClassDef(tree);
 
             staticFile.flush();
             staticFile.close();
-            staticFile = null;
+            staticFiles.pop();
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        clazzPaths.pop();
     }
 
     public void visitMethodDef(JCTree.JCMethodDecl tree) {
         // rock n roll
         Symbol.MethodSymbol methodSymbol = tree.sym;
         try {
-            setMethodFile(methodSymbol.toString());
+            BufferedWriter methodFile =
+                    newMethodFile(clazzPaths.peek(), methodSymbol.toString());
+            methodFiles.push(methodFile);
 
             super.visitMethodDef(tree);
 
             methodFile.flush();
             methodFile.close();
-            methodFile = null;
+            methodFiles.pop();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -92,41 +113,53 @@ public class MethodInvocationScanner extends TreeScanner {
         }
 
         if(symbol != null) {
-            if(methodFile == null) {
-                try {
-                    staticFile.write(methodSignature(symbol));
-                    staticFile.newLine();
-                } catch (IOException e) {
-                    e.printStackTrace();
+            if(methodFiles.empty()) {
+
+                if(!staticFiles.empty()) {
+                    BufferedWriter staticFile = staticFiles.peek();
+                    if(staticFile != null) {
+                        try {
+                            staticFile.write(methodSignature(symbol));
+                            staticFile.newLine();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } else {
+                    // TODO-blues
                 }
+
             } else {
+
+                BufferedWriter methodFile = methodFiles.peek();
                 try {
                     methodFile.write(methodSignature(symbol));
                     methodFile.newLine();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+
             }
         }
 
         super.visitApply(tree);
     }
 
-    private void setMethodFile(String methodName) throws IOException {
-        Path methodPath = clazzPath.resolve(methodName);
-        Charset charset = Charset.forName("US-ASCII");
-        methodFile = Files.newBufferedWriter(
-                methodPath, charset, CREATE, WRITE, TRUNCATE_EXISTING);
+    private BufferedWriter newStaticFile(Path clazzPath) throws IOException {
+        return newMethodFile(clazzPath, "STATIC");
     }
 
-    private void setStaticFile() throws IOException {
-        Path methodPath = clazzPath.resolve("STATIC");
-        Charset charset = Charset.forName("US-ASCII");
-        staticFile = Files.newBufferedWriter(
-                methodPath, charset, CREATE, WRITE, TRUNCATE_EXISTING);
+    private BufferedWriter newMethodFile(Path clazzPath, String methodName)
+            throws IOException {
+        Path methodPath = clazzPath.resolve(methodName);
+        return Files.newBufferedWriter(
+                methodPath, CHARSET, CREATE, WRITE, TRUNCATE_EXISTING);
     }
 
     private String methodSignature(Symbol symbol) {
+        if(symbol.isStatic()) {
+            // TODO-blues
+        }
         return symbol.owner.toString() + "#"
                 + symbol.name.toString() + ":"
                 + symbol.type.toString();
