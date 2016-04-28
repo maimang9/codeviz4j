@@ -116,13 +116,11 @@ public class MethodInvocationScanner extends TreeScanner {
 
                 if(!staticFiles.empty()) {
                     BufferedWriter staticFile = staticFiles.peek();
-                    if(staticFile != null) {
-                        try {
-                            staticFile.write(methodLink(symbol, lineNumber));
-                            staticFile.newLine();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                    try {
+                        staticFile.write(methodLink(symbol, lineNumber));
+                        staticFile.newLine();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 } else {
                     // TODO-blues
@@ -160,7 +158,7 @@ public class MethodInvocationScanner extends TreeScanner {
             // TODO-blues
         }
         return String.format("%s: <a href=\"%s\" target=_blank>%s</a><br/>",
-                lineNumber, buildLink(symbol), fullSignature(symbol));
+                lineNumber, buildLink(symbol), fullName(symbol));
     }
 
     private String buildLink(Symbol symbol) {
@@ -169,7 +167,7 @@ public class MethodInvocationScanner extends TreeScanner {
                 methodSignature(symbol));
     }
 
-    private String fullSignature(Symbol symbol) {
+    private String fullName(Symbol symbol) {
         return symbol.owner + "#" + symbol.name;
     }
 
