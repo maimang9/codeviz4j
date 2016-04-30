@@ -6,8 +6,9 @@ package me.kisimple.codeviz4j.buuug.v1.i004;
 public class InnerClazz {
 
     static class StaticInnerClazz {
-        public void saySomething() {
-            System.out.println("hello world!");
+        static int staticInt = 7;
+        public void saySomething(int i) {
+            System.out.println(i);
         }
     }
     private class PublicInnerClazz {
@@ -22,9 +23,15 @@ public class InnerClazz {
     }
 
     public static void main(String[] args) {
-        new StaticInnerClazz().saySomething();
+        new StaticInnerClazz().saySomething(StaticInnerClazz.staticInt);
         new InnerClazz().new PublicInnerClazz().saySomething();
         new InnerClazz().new PrivateInnerClazz().saySomething();
+        class LocalClass {
+            public void saySomething() {
+                System.out.println("hello world!");
+            }
+        }
+        new LocalClass().saySomething();
     }
 
 }

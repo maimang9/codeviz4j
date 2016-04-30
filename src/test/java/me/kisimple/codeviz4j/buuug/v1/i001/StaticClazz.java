@@ -5,8 +5,9 @@ package me.kisimple.codeviz4j.buuug.v1.i001;
  */
 public class StaticClazz {
 
-    public static void saySomething() {
+    public static boolean saySomething() {
         System.out.println("hello world!");
+        return true;
     }
 
     public static void main(String[] args) {

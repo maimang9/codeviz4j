@@ -17,23 +17,35 @@ public class ToString {
 
     public static boolean ROCK = false;
 
-    public static String toString(MethodSymbol methodSymbol) {
+    public static String className(Symbol symbol) {
+        if(symbol instanceof ClassSymbol) {
+            ClassSymbol classSymbol = (ClassSymbol) symbol;
+            return classSymbol.isAnonymous()||classSymbol.isLocal() ?
+                    classSymbol.flatname.toString() : classSymbol.fullname.toString();
+        }
+        return symbol.toString();
+    }
 
-        if(ROCK) return methodSymbol.toString();
+    public static String methodName(Symbol symbol) {
+        if(symbol instanceof MethodSymbol) {
+            MethodSymbol methodSymbol = (MethodSymbol)symbol;
+            if(ROCK) return methodSymbol.toString();
 
-        if ((methodSymbol.flags() & BLOCK) != 0) {
-            return methodSymbol.owner.name.toString();
-        } else {
-            String s = (methodSymbol.name == methodSymbol.name.table.names.init)
-                    ? methodSymbol.owner.name.toString()
-                    : methodSymbol.name.toString();
-            if (methodSymbol.type != null) {
+            if ((methodSymbol.flags() & BLOCK) != 0) {
+                return methodSymbol.owner.name.toString();
+            } else {
+                String s = (methodSymbol.name == methodSymbol.name.table.names.init)
+                        ? methodSymbol.owner.name.toString()
+                        : methodSymbol.name.toString();
+                if (methodSymbol.type != null) {
 //                if (methodSymbol.type.tag == FORALL)
 //                    s = "<" + ((Type.ForAll)methodSymbol.type).getTypeArguments() + ">" + s;
-                s += "(" + argTypes(methodSymbol.type, (methodSymbol.flags() & VARARGS) != 0) + ")";
+                    s += "(" + argTypes(methodSymbol.type, (methodSymbol.flags() & VARARGS) != 0) + ")";
+                }
+                return s;
             }
-            return s;
         }
+        return symbol.toString();
     }
 
     private static String argTypes(Type type, boolean varargs) {

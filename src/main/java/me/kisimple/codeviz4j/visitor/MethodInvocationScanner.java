@@ -5,13 +5,14 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Position;
 
+import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.*;
-import java.io.*;
 import java.util.Stack;
 
 import static com.sun.tools.javac.code.Symbol.*;
 import static java.nio.file.StandardOpenOption.*;
+import static me.kisimple.codeviz4j.visitor.ToString.*;
 
 /**
  * Created by blues on 12/22/15.
@@ -50,8 +51,8 @@ public class MethodInvocationScanner extends TreeScanner {
                 return;
             }
 
-            Path clazzPath = CV4J_HOME.resolve(
-                    classSymbol.flatname.toString().replace(".", FILE_SEPARATOR));
+            String className = className(classSymbol);
+            Path clazzPath = CV4J_HOME.resolve(className.replace(".", FILE_SEPARATOR));
             clazzPaths.push(clazzPath);
 
             if(Files.notExists(clazzPath)) {
@@ -82,7 +83,7 @@ public class MethodInvocationScanner extends TreeScanner {
             MethodSymbol methodSymbol = tree.sym;
 
             BufferedWriter methodFile =
-                    newMethodFile(clazzPaths.peek(), ToString.toString(methodSymbol));
+                    newMethodFile(clazzPaths.peek(), methodName(methodSymbol));
             methodFiles.push(methodFile);
 
             super.visitMethodDef(tree);
@@ -151,14 +152,12 @@ public class MethodInvocationScanner extends TreeScanner {
             if(Files.notExists(CV4J_HOME)) {
                 Files.createDirectories(CV4J_HOME);
             }
-            Path errorLogPath = CV4J_HOME.resolve("error.log");
-            File errorLog = errorLogPath.toFile();
-            FileOutputStream fos = new FileOutputStream(errorLog);
-            System.setErr(new PrintStream(fos));
+            Path errorLog = CV4J_HOME.resolve("error.log");
+            OutputStream outputStream = Files.newOutputStream(errorLog);
+            System.setErr(new PrintStream(outputStream));
         } catch (Throwable t) {
             t.printStackTrace();
         }
-
     }
 
     private void cleanDirectories(File dir) {
@@ -181,29 +180,23 @@ public class MethodInvocationScanner extends TreeScanner {
                 methodPath, CHARSET, CREATE, WRITE, TRUNCATE_EXISTING);
     }
 
-    private String methodHtml(Symbol symbol, int lineNumber) {
+    private String methodHtml(Symbol symbol, int lineNumber) throws Throwable {
         return String.format("%s: <a href=\"%s\" target=_blank>%s</a><br/>",
                 lineNumber, methodLink(symbol), simpleName(symbol));
     }
 
-    private String methodLink(Symbol symbol) {
-        return String.format("file:///%s/%s.html",
-                CV4J_HOME.resolve(symbol.owner.toString().replace(".", FILE_SEPARATOR)),
-                methodSignature(symbol));
-    }
-
-    private String methodSignature(Symbol symbol) {
+    private String methodLink(Symbol symbol) throws Throwable {
         if(symbol instanceof MethodSymbol) {
-            return ToString.toString((MethodSymbol)symbol);
+            return String.format("file:///%s/%s.html",
+                    CV4J_HOME.resolve(className(symbol.owner).replace(".", FILE_SEPARATOR)),
+                    methodName(symbol));
+        } else {
+            throw new Throwable(symbol.toString());
         }
-        String symStr = symbol.type.toString();
-        int rtStart = symStr.indexOf(")");
-        String type = rtStart > 0 ? symStr.substring(0, rtStart+1) : symStr;
-        return symbol.name.toString()+type;
     }
 
     private String simpleName(Symbol symbol) {
-        return symbol.owner + "#" + symbol.name;
+        return className(symbol.owner) + "#" + symbol.name;
     }
 
 }
