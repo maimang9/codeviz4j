@@ -23,11 +23,15 @@ public class MethodInvocationScanner extends TreeScanner {
 
     private static Charset CHARSET = Charset.forName("US-ASCII");
 
-    private Position.LineMap lineMap;
+    static {
+        setErrorLog();
+    }
 
     private Stack<Path> clazzPaths = new Stack<>();
     private Stack<BufferedWriter> staticFiles = new Stack<>();
     private Stack<BufferedWriter> methodFiles = new Stack<>();
+
+    private Position.LineMap lineMap;
 
     public MethodInvocationScanner(Position.LineMap lineMap) {
         this.lineMap = lineMap;
@@ -38,23 +42,24 @@ public class MethodInvocationScanner extends TreeScanner {
  ****************************************************************************/
 
     public void visitClassDef(JCTree.JCClassDecl tree) {
-        // rock n roll
-        ClassSymbol classSymbol = tree.sym;
-
-        if(classSymbol.isInterface()) {
-            return;
-        }
-
-        Path clazzPath = CV4J_HOME.resolve(
-                classSymbol.flatname.toString().replace(".", FILE_SEPARATOR));
-        clazzPaths.push(clazzPath);
-
         try {
+            // rock n roll
+            ClassSymbol classSymbol = tree.sym;
+
+            if(classSymbol.isInterface()) {
+                return;
+            }
+
+            Path clazzPath = CV4J_HOME.resolve(
+                    classSymbol.flatname.toString().replace(".", FILE_SEPARATOR));
+            clazzPaths.push(clazzPath);
+
             if(Files.notExists(clazzPath)) {
                 Files.createDirectories(clazzPath);
             } else {
                 cleanDirectories(clazzPath.toFile());
             }
+
             BufferedWriter staticFile = newStaticFile(clazzPath);
             staticFiles.push(staticFile);
 
@@ -63,17 +68,19 @@ public class MethodInvocationScanner extends TreeScanner {
             staticFile.flush();
             staticFile.close();
             staticFiles.pop();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
-        clazzPaths.pop();
+            clazzPaths.pop();
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.err.println(tree);
+        }
     }
 
     public void visitMethodDef(JCTree.JCMethodDecl tree) {
-        // rock n roll
-        MethodSymbol methodSymbol = tree.sym;
         try {
+            // rock n roll
+            MethodSymbol methodSymbol = tree.sym;
+
             BufferedWriter methodFile =
                     newMethodFile(clazzPaths.peek(), ToString.toString(methodSymbol));
             methodFiles.push(methodFile);
@@ -83,61 +90,76 @@ public class MethodInvocationScanner extends TreeScanner {
             methodFile.flush();
             methodFile.close();
             methodFiles.pop();
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.err.println(tree);
         }
     }
 
     public void visitApply(JCTree.JCMethodInvocation tree) {
-        // rock n roll
-        JCTree.JCExpression meth = tree.meth;
-        int lineNumber = -1;
-        Symbol symbol = null;
+        try {
+            // rock n roll
+            JCTree.JCExpression meth = tree.meth;
+            int lineNumber;
+            Symbol symbol;
 
-        /////// total hack
-        if(meth instanceof JCTree.JCIdent) {
-            JCTree.JCIdent ident = (JCTree.JCIdent)meth;
-            lineNumber = lineMap.getLineNumber(ident.pos);
-            symbol = ident.sym;
-        } else if(meth instanceof JCTree.JCFieldAccess) {
-            JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess)meth;
-            lineNumber = lineMap.getLineNumber(fieldAccess.pos);
-            symbol = fieldAccess.sym;
-        } else {
-            // TODO-blues
-        }
+            /////// total hack
+            if(meth instanceof JCTree.JCIdent) {
+                JCTree.JCIdent ident = (JCTree.JCIdent)meth;
+                lineNumber = lineMap.getLineNumber(ident.pos);
+                symbol = ident.sym;
+            } else if(meth instanceof JCTree.JCFieldAccess) {
+                JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess)meth;
+                lineNumber = lineMap.getLineNumber(fieldAccess.pos);
+                symbol = fieldAccess.sym;
+            } else {
+                throw new Throwable(meth.toString());
+            }
 
-        if(symbol != null) {
-            if(methodFiles.empty()) {
+            if(symbol != null) {
+                if(methodFiles.empty()) {
 
-                if(!staticFiles.empty()) {
-                    BufferedWriter staticFile = staticFiles.peek();
-                    try {
+                    if(!staticFiles.empty()) {
+                        BufferedWriter staticFile = staticFiles.peek();
                         staticFile.write(methodHtml(symbol, lineNumber));
                         staticFile.newLine();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    } else {
+                        throw new Throwable("staticFiles.empty()");
                     }
+
                 } else {
-                    // TODO-blues
-                }
 
-            } else {
-
-                BufferedWriter methodFile = methodFiles.peek();
-                try {
+                    BufferedWriter methodFile = methodFiles.peek();
                     methodFile.write(methodHtml(symbol, lineNumber));
                     methodFile.newLine();
-                } catch (IOException e) {
-                    e.printStackTrace();
+
                 }
-
             }
-        }
 
-        super.visitApply(tree);
+            super.visitApply(tree);
+
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.err.println(tree);
+        }
     }
 
+
+
+    private static void setErrorLog() {
+        try {
+            Path errorLogPath = CV4J_HOME.resolve("error.log");
+            File errorLog = errorLogPath.toFile();
+            if(Files.exists(errorLogPath)) {
+                errorLog.delete();
+            }
+            FileOutputStream fos = new FileOutputStream(errorLog);
+            System.setErr(new PrintStream(fos));
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+
+    }
 
     private void cleanDirectories(File dir) {
         for (File file : dir.listFiles()) {
