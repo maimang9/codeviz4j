@@ -24,7 +24,7 @@ public class MethodInvocationScanner extends TreeScanner {
     private static Charset CHARSET = Charset.forName("US-ASCII");
 
     static {
-        setErrorLog();
+        init();
     }
 
     private Stack<Path> clazzPaths = new Stack<>();
@@ -146,13 +146,13 @@ public class MethodInvocationScanner extends TreeScanner {
 
 
 
-    private static void setErrorLog() {
+    private static void init() {
         try {
+            if(Files.notExists(CV4J_HOME)) {
+                Files.createDirectories(CV4J_HOME);
+            }
             Path errorLogPath = CV4J_HOME.resolve("error.log");
             File errorLog = errorLogPath.toFile();
-            if(Files.exists(errorLogPath)) {
-                errorLog.delete();
-            }
             FileOutputStream fos = new FileOutputStream(errorLog);
             System.setErr(new PrintStream(fos));
         } catch (Throwable t) {
