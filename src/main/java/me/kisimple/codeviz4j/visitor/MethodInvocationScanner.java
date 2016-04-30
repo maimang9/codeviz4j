@@ -10,6 +10,7 @@ import java.nio.file.*;
 import java.io.*;
 import java.util.Stack;
 
+import static com.sun.tools.javac.code.Symbol.*;
 import static java.nio.file.StandardOpenOption.*;
 
 /**
@@ -38,26 +39,21 @@ public class MethodInvocationScanner extends TreeScanner {
 
     public void visitClassDef(JCTree.JCClassDecl tree) {
         // rock n roll
-        Symbol.ClassSymbol classSymbol = tree.sym;
+        ClassSymbol classSymbol = tree.sym;
 
         if(classSymbol.isInterface()) {
             return;
         }
-        if(classSymbol.isAnonymous()) {
-            // TODO-blues
-            return;
-        }
-        if(classSymbol.isInner()) {
-            // TODO-blues
-        }
 
         Path clazzPath = CV4J_HOME.resolve(
-                classSymbol.fullname.toString().replace(".", FILE_SEPARATOR));
+                classSymbol.flatname.toString().replace(".", FILE_SEPARATOR));
         clazzPaths.push(clazzPath);
 
         try {
             if(Files.notExists(clazzPath)) {
                 Files.createDirectories(clazzPath);
+            } else {
+                cleanDirectories(clazzPath.toFile());
             }
             BufferedWriter staticFile = newStaticFile(clazzPath);
             staticFiles.push(staticFile);
@@ -76,10 +72,10 @@ public class MethodInvocationScanner extends TreeScanner {
 
     public void visitMethodDef(JCTree.JCMethodDecl tree) {
         // rock n roll
-        Symbol.MethodSymbol methodSymbol = tree.sym;
+        MethodSymbol methodSymbol = tree.sym;
         try {
             BufferedWriter methodFile =
-                    newMethodFile(clazzPaths.peek(), methodSymbol.toString());
+                    newMethodFile(clazzPaths.peek(), ToString.toString(methodSymbol));
             methodFiles.push(methodFile);
 
             super.visitMethodDef(tree);
@@ -117,7 +113,7 @@ public class MethodInvocationScanner extends TreeScanner {
                 if(!staticFiles.empty()) {
                     BufferedWriter staticFile = staticFiles.peek();
                     try {
-                        staticFile.write(methodLink(symbol, lineNumber));
+                        staticFile.write(methodHtml(symbol, lineNumber));
                         staticFile.newLine();
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -130,7 +126,7 @@ public class MethodInvocationScanner extends TreeScanner {
 
                 BufferedWriter methodFile = methodFiles.peek();
                 try {
-                    methodFile.write(methodLink(symbol, lineNumber));
+                    methodFile.write(methodHtml(symbol, lineNumber));
                     methodFile.newLine();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -140,6 +136,16 @@ public class MethodInvocationScanner extends TreeScanner {
         }
 
         super.visitApply(tree);
+    }
+
+
+    private void cleanDirectories(File dir) {
+        for (File file : dir.listFiles()) {
+            if(file.isDirectory()) {
+                cleanDirectories(file);
+            }
+            file.delete();
+        }
     }
 
     private BufferedWriter newStaticFile(Path clazzPath) throws IOException {
@@ -153,29 +159,29 @@ public class MethodInvocationScanner extends TreeScanner {
                 methodPath, CHARSET, CREATE, WRITE, TRUNCATE_EXISTING);
     }
 
-    private String methodLink(Symbol symbol, int lineNumber) {
-        if(symbol.isStatic()) {
-            // TODO-blues
-        }
+    private String methodHtml(Symbol symbol, int lineNumber) {
         return String.format("%s: <a href=\"%s\" target=_blank>%s</a><br/>",
-                lineNumber, buildLink(symbol), fullName(symbol));
+                lineNumber, methodLink(symbol), simpleName(symbol));
     }
 
-    private String buildLink(Symbol symbol) {
+    private String methodLink(Symbol symbol) {
         return String.format("file:///%s/%s.html",
                 CV4J_HOME.resolve(symbol.owner.toString().replace(".", FILE_SEPARATOR)),
                 methodSignature(symbol));
     }
 
-    private String fullName(Symbol symbol) {
-        return symbol.owner + "#" + symbol.name;
-    }
-
     private String methodSignature(Symbol symbol) {
+        if(symbol instanceof MethodSymbol) {
+            return ToString.toString((MethodSymbol)symbol);
+        }
         String symStr = symbol.type.toString();
         int rtStart = symStr.indexOf(")");
         String type = rtStart > 0 ? symStr.substring(0, rtStart+1) : symStr;
         return symbol.name.toString()+type;
+    }
+
+    private String simpleName(Symbol symbol) {
+        return symbol.owner + "#" + symbol.name;
     }
 
 }
