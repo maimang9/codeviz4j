@@ -114,7 +114,7 @@ public class MethodInvocationScanner extends TreeScanner {
                 lineNumber = lineMap.getLineNumber(fieldAccess.pos);
                 symbol = fieldAccess.sym;
             } else {
-                throw new Throwable(meth.getClass().getName() + "#" + meth.toString());
+                throw new Throwable("<"+meth.getClass().getName()+">" + meth.toString());
             }
 
             if(symbol != null) {
@@ -135,6 +135,8 @@ public class MethodInvocationScanner extends TreeScanner {
                     methodFile.newLine();
 
                 }
+            } else {
+                throw new Throwable("symbol == null");
             }
 
             super.visitApply(tree);
@@ -191,7 +193,7 @@ public class MethodInvocationScanner extends TreeScanner {
                     CV4J_HOME.resolve(className(symbol.owner).replace(".", FILE_SEPARATOR)),
                     methodName(symbol));
         }
-        throw new Throwable(symbol.getClass().getName() + "#" + symbol.toString());
+        throw new Throwable("<"+symbol.getClass().getName()+">" + symbol.toString());
     }
 
     private String simpleName(Symbol symbol) {
