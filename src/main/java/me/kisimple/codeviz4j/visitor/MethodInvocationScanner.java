@@ -147,6 +147,18 @@ public class MethodInvocationScanner extends TreeScanner {
         }
     }
 
+    public void visitExec(JCTree.JCExpressionStatement tree) {
+//        tree.expr;
+
+        super.visitExec(tree);
+    }
+
+    public void visitVarDef(JCTree.JCVariableDecl tree) {
+//        tree.init;
+
+        super.visitVarDef(tree);
+    }
+
 
 
     private static void init() {
@@ -172,28 +184,45 @@ public class MethodInvocationScanner extends TreeScanner {
     }
 
     private BufferedWriter newStaticFile(Path clazzPath) throws IOException {
-        return newMethodFile(clazzPath, "__static");
+        return newMethodFile(clazzPath, "_static");
     }
 
     private BufferedWriter newMethodFile(Path clazzPath, String methodName)
             throws IOException {
-        Path methodPath = clazzPath.resolve(methodName+".html");
-        return Files.newBufferedWriter(
-                methodPath, CHARSET, CREATE, WRITE, TRUNCATE_EXISTING);
+        try {
+            Path methodPath = clazzPath.resolve(methodName+".html");
+            return Files.newBufferedWriter(
+                    methodPath, CHARSET, CREATE, WRITE, TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Path methodPath = clazzPath.resolve("__error.html");
+            BufferedWriter errorFile = Files.newBufferedWriter(
+                    methodPath, CHARSET, CREATE, APPEND);
+            errorFile.write("##"+methodName);
+            errorFile.newLine();
+            return errorFile;
+        }
     }
 
     private String methodHtml(Symbol symbol, int lineNumber) throws Throwable {
-        return String.format("%s: <a href=\"%s\" target=_blank>%s</a><br/>",
-                lineNumber, methodLink(symbol), simpleName(symbol));
+        if(symbol instanceof MethodSymbol) {
+            return String.format("%s: <a href=\"%s\" target=_blank>%s</a><br/>",
+                    lineNumber, methodLink(symbol), simpleName(symbol));
+        } else {
+
+            if(symbol instanceof ClassSymbol) {
+                Unexpected.classSymbol((ClassSymbol)symbol);
+                return String.format("%s: %s<br/>", lineNumber, simpleName(symbol));
+            }
+
+            throw new Throwable("<"+symbol.getClass().getName()+">" + symbol.toString());
+        }
     }
 
     private String methodLink(Symbol symbol) throws Throwable {
-        if(symbol instanceof MethodSymbol) {
             return String.format("file:///%s/%s.html",
                     CV4J_HOME.resolve(className(symbol.owner).replace(".", FILE_SEPARATOR)),
                     methodName(symbol));
-        }
-        throw new Throwable("<"+symbol.getClass().getName()+">" + symbol.toString());
     }
 
     private String simpleName(Symbol symbol) {
