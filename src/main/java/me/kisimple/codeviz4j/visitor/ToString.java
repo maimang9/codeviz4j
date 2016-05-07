@@ -48,6 +48,8 @@ public class ToString {
         return symbol.toString();
     }
 
+
+
     private static String argTypes(Type type, boolean varargs) {
         List<Type> args = type.getParameterTypes();
         if (!varargs) return toString(args);
@@ -66,7 +68,7 @@ public class ToString {
         return buf.toString();
     }
 
-    public static String toString(List<Type> typeList) {
+    private static String toString(List<Type> typeList) {
         if(typeList == null || typeList.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
         for (Type type : typeList) {
@@ -75,7 +77,7 @@ public class ToString {
         return sb.toString().substring(0, sb.toString().length()-1);
     }
 
-    public static String toString(Type type) {
+    private static String toString(Type type) {
         if(type instanceof Type.ClassType) {
 
             Type.ClassType classType = (Type.ClassType)type;

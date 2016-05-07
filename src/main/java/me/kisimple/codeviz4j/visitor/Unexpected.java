@@ -10,7 +10,7 @@ import static com.sun.tools.javac.code.Symbol.*;
  */
 public class Unexpected {
 
-    public static void symbol(Symbol symbol) {
+    private static void symbol(Symbol symbol) {
         System.err.println("\"kind\":\""+symbol.kind+"\",");
         System.err.println("\"name\":\""+symbol.name+"\",");
         System.err.println("\"type\":\""+symbol.type+"\",");

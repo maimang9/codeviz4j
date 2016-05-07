@@ -18,9 +18,10 @@ public class Main {
     };
 
     public static void main(String[] args) {
+        System.out.println(System.getProperty("user.dir"));
+//        setUserDir();
         com.sun.tools.javac.main.Main compiler =
                 new com.sun.tools.javac.main.Main("javac");
-//        setWorkingDir();
         compiler.compile(ARGUMENTS);
     }
 
